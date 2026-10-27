@@ -1,0 +1,60 @@
+# hi3516cv6xx_waybeam_generic: wireless stack for the FPV link.
+#
+# Merged on top of hi3516cv6xx.generic.config by BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES,
+# never replacing it: the base config has CONFIG_WIRELESS and CONFIG_WLAN off,
+# so on this SoC family no USB WiFi adapter can exist at all. Only the symbols
+# below change; NOR/FMC, MIPI/I2C, GPIO, UART, MMZ/CMA and the recovery stack
+# stay exactly as the common config has them.
+#
+# Why it is needed: this image carries rtl8812au and rtl88x2eu for
+# wifibroadcast. Both are cfg80211 drivers -- they register a wiphy and
+# implement monitor mode and raw injection in their own tree -- and
+# /usr/bin/wifibroadcast drives them through `iw`, which speaks nl80211 and
+# nothing else. Without cfg80211 there is no wlan0 to put in monitor mode.
+#
+# What is deliberately NOT enabled, and why:
+#
+#   CONFIG_MAC80211   neither adapter is a softmac driver, so nothing here
+#                     would use it; it is ~600 KB of module for no behaviour.
+#                     Add CONFIG_MAC80211=m if a mac80211 part (ath9k_htc,
+#                     mt7601u, ...) is ever wanted beside them.
+#
+#   CONFIG_CFG80211_REQUIRE_SIGNED_REGDB
+#                     cfg80211 selects FW_LOADER outright, and that hidden
+#                     symbol defaults to y and unconditionally selects
+#                     SYSTEM_DATA_VERIFICATION -- RSA/ASN1/X509/PKCS7 plus every
+#                     initramfs decompressor, ~27 KB of vmlinux. The kernel is
+#                     the tight half of this layout: u-boot reads a fixed
+#                     2048 KB window, post-image-split refuses to write past it,
+#                     and only ~18 KB was free. It is hidden behind
+#                     CFG80211_CERTIFICATION_ONUS (which needs EXPERT), so the
+#                     only way to decline it is to open that submenu and say no.
+#                     EXPERT itself does not change any value the base config
+#                     already has; it only makes the symbols askable. And the
+#                     regulator is already off: no regulatory.db is shipped
+#                     (BR2_PACKAGE_WIRELESS_REGDB is not selected), so nothing
+#                     would have been verified anyway.
+#
+#   CONFIG_CFG80211_CRDA_SUPPORT
+#                     with no regdb to load, CRDA has nothing to do, and with it
+#                     off cfg80211 does not even ask. The wiphy keeps the
+#                     regdomain its driver sets -- both RTL trees here ship
+#                     their own country-00 table -- and the wfb script's
+#                     `iw reg set 00` becomes a no-op.
+#
+#   CONFIG_CFG80211_WEXT
+#                     WEXT_CORE is `def_bool y` underneath it, which pulls the
+#                     iwconfig-era shims into vmlinux (another ~2 KB) for code
+#                     paths neither driver needs.
+
+CONFIG_WIRELESS=y
+CONFIG_WLAN=y
+CONFIG_EXPERT=y
+CONFIG_CFG80211=m
+CONFIG_CFG80211_DEFAULT_PS=y
+CONFIG_CFG80211_CERTIFICATION_ONUS=y
+# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB is not set
+# CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS is not set
+# CONFIG_CFG80211_CRDA_SUPPORT is not set
+# CONFIG_CFG80211_WEXT is not set
+# CONFIG_RFKILL is not set

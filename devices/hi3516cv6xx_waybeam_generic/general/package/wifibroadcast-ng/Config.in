@@ -1,0 +1,59 @@
+# This file is OpenIPC/firmware's general/package/wifibroadcast-ng/Config.in with
+# one line gated: the unconditional `select BR2_PACKAGE_MSPOSD`.
+#
+# msposd draws its OSD through the SoC's region/overlay hardware, and
+# msposd.mk picks the build flavour from OPENIPC_SOC_FAMILY with an `else`
+# defaulting to Sigmastar star6e. For hi3516cv6xx there is no branch, so it
+# builds star6e and links libcam_os_wrapper/libmi_rgn/libmi_sys from
+# sigmastar-osdrv-infinity6e against a Hisilicon image -- which fails at link
+# time (undefined symbols), taking the whole build down with it. That is why
+# no cv6xx image has ever carried wifibroadcast-ng.
+#
+# So the select is conditioned on "not this SoC family". (Gating on the family
+# packages instead reads better but kconfig rejects it as a recursive
+# dependency: msposd selects HISILICON_OSDRV_HI3536DV100 on that SoC, so an
+# osdrv-based condition would loop through the select back into itself.) On cv6xx the
+# OSD overlay simply is not available: there is no V5 (cv6xx MPP) flavour of
+# msposd yet, and nothing in this image needs it -- waybeam draws no OSD
+# region, and telemetry on this target runs through mavfwd, which is plain C
+# and architecture-neutral (customizer.sh points .telemetry.router at it).
+#
+# Upstream candidate: the same one-line gate belongs in firmware itself.
+#
+# Unrelated but noticed here: the `select BR2_PACKAGE_YAML_CLI_MULTI` below is a
+# no-op upstream, because general/package/Config.in never sources
+# yaml-cli-multi/Config.in -- the symbol is undefined, so the package is never
+# built and `yaml-cli-multi` is missing from every image that expects it
+# (adaptive-link's select has the same problem). Left as upstream has it: the
+# only caller in /usr/bin/wifibroadcast is the load_modules path that records
+# .wireless.wlan_adapter, so the link still comes up without it. Fix belongs in
+# firmware as a one-line `source`, not as a 158-line file copied into a device.
+config BR2_PACKAGE_WIFIBROADCAST_NG
+	bool "wifibroadcast-ng"
+	select BR2_PACKAGE_IW
+	select BR2_PACKAGE_MAVFWD
+	select BR2_PACKAGE_MSPOSD if BR2_OPENIPC_SOC_FAMILY != "hi3516cv6xx"
+	# wfb_tun includes <event.h> and links -levent_core. Declared here so it
+	# builds against libevent-openipc, the library the image actually ships:
+	# with that package selected, the toolchain's own libevent headers are
+	# removed from staging, and an undeclared dependency finds none at all.
+	select BR2_PACKAGE_LIBEVENT_OPENIPC
+	# files/wifibroadcast reads the video size out of majestic's config with
+	# jsonfilter before handing it to msposd. That used to be satisfied by every
+	# defconfig setting BR2_PACKAGE_JSONFILTER=y for the WebUI's benefit; the
+	# WebUI stopped needing it, so the dependency has to be declared where it is
+	# actually used rather than inherited from an unrelated package.
+	select BR2_PACKAGE_JSONFILTER
+	# ...and the same script reads /etc/wfb.yaml with yaml-cli, writes the wlan
+	# adapter into it with yaml-cli-multi, and fetches majestic's config with the
+	# curl binary (not just the library). yaml-cli happened to be on 122 of 125
+	# defconfigs and curl on the same 122, so none of this ever surfaced;
+	# yaml-cli-multi was never guaranteed anywhere and is genuinely absent from a
+	# stock lite image.
+	select BR2_PACKAGE_YAML_CLI
+	select BR2_PACKAGE_YAML_CLI_MULTI
+	select BR2_PACKAGE_LIBCURL_OPENIPC
+	select BR2_PACKAGE_LIBCURL_OPENIPC_CURL
+	help
+	  Long-range packet radio link based on raw WiFi radio.
+	  https://github.com/svpcom/wfb-ng

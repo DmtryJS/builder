@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# waybeam hands its RTP to wfb_tx over an abstract unix datagram socket
+# (outgoing.server unix://rtp_local in /etc/waybeam.json, set by customizer.sh
+# on first boot). A unix datagram sender blocks on the receiver's queue, whose
+# depth the kernel takes from net.unix.max_dgram_qlen when the receiving socket
+# is created, and the default of 10 is less than one 1080p60 frame's worth of
+# packets. So it is raised here, before S95waybeam starts the encoder and
+# before S98wifibroadcast starts wfb_tx; raising it later does nothing for a
+# socket that already exists.
+#
+# 256 is the number ssc338q_waybeam_generic uses for the same reason. waybeam
+# reads the queue in bytes (SIOCOUTQ against SO_SNDBUF in src/output_socket.c)
+# and warns when the peer's queue is shallow, so this is also what keeps that
+# warning off the air-unit log.
+
+case "$1" in
+	start)
+		echo 256 > /proc/sys/net/unix/max_dgram_qlen
+		;;
+esac

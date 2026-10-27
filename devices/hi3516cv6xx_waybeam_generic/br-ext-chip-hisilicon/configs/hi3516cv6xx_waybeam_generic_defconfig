@@ -1,0 +1,137 @@
+# OpenIPC
+BR2_OPENIPC_SOC_VENDOR="hisilicon"
+BR2_OPENIPC_SOC_MODEL="hi3516cv6xx"
+BR2_OPENIPC_SOC_FAMILY="hi3516cv6xx"
+# One cv6xx image serves dies that report distinct ids (hi3516cv610,
+# hi3516cv608) via fw_printenv/ipcinfo. Upgrade identity comes from
+# BUILD_PLATFORM=hi3516cv6xx_waybeam_generic -- the name CI publishes the
+# image under (hi3516cv6xx_waybeam_generic-nor.tgz, see customizer.sh) --
+# these aliases are a defensive route for any image/camera that still
+# surfaces the per-die id.
+BR2_OPENIPC_SOC_ALIASES="hi3516cv610 hi3516cv608"
+# "waybeam" is deliberately its own variant, as on ssc338q_waybeam_generic:
+# it selects the waybeam package in place of majestic, and keeps this
+# image's upgrade identity out of the published majestic
+# hi3516cv6xx_ultimate channel.
+BR2_OPENIPC_VARIANT="waybeam"
+BR2_OPENIPC_FLASH_SIZE="16"
+
+# Architecture
+BR2_arm=y
+BR2_cortex_a7=y
+BR2_ARM_EABI=y
+BR2_ARM_FPU_NEON_VFPV4=y
+BR2_ARM_INSTRUCTIONS_THUMB2=y
+
+# Toolchain
+BR2_TOOLCHAIN_EXTERNAL=y
+BR2_TOOLCHAIN_EXTERNAL_DOWNLOAD=y
+BR2_TOOLCHAIN_EXTERNAL_URL="https://github.com/openipc/firmware/releases/download/$(OPENIPC_TOOLCHAIN).tgz"
+BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="arm-openipc-linux-musleabi"
+BR2_TOOLCHAIN_EXTERNAL_HEADERS_5_10=y
+BR2_TOOLCHAIN_EXTERNAL_CUSTOM_MUSL=y
+BR2_GCC_VERSION_13_X=y
+BR2_TOOLCHAIN_EXTERNAL_CXX=y
+
+# Kernel
+BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
+BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="https://github.com/openipc/linux/archive/$(OPENIPC_KERNEL).tar.gz"
+BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(EXTERNAL_VENDOR)/board/$(OPENIPC_SOC_FAMILY)/$(BR2_OPENIPC_SOC_MODEL).generic.config"
+# The cv6xx kernel config has CONFIG_WIRELESS/WLAN off, so a USB WiFi adapter
+# cannot exist on it. This fragment adds cfg80211 (and nothing else) on top:
+# both FPV adapters below are cfg80211 drivers driven through `iw`.
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(EXTERNAL_VENDOR)/board/$(OPENIPC_SOC_FAMILY)/hi3516cv6xx-waybeam.fragment"
+BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_GENERAL_PATH)/scripts/post-image-split.sh"
+BR2_LINUX_KERNEL_UIMAGE=y
+BR2_LINUX_KERNEL_XZ=y
+BR2_LINUX_KERNEL_UIMAGE_LOADADDR="0x40018000"
+
+# Filesystem
+BR2_PACKAGE_BUSYBOX_CONFIG="$(BR2_EXTERNAL)/package/busybox/busybox.config"
+BR2_PACKAGE_EXFATPROGS=y
+BR2_PACKAGE_UBOOT_TOOLS=y
+# libcurl-openipc builds zlib only when this symbol is set, and the shipped
+# curl cannot start without libz.so.1 -- on cv6xx no defconfig selects it,
+# so curl has been dead in those images while wget (busybox) carried on.
+# Same line ssc338q_waybeam_generic already has.
+BR2_PACKAGE_ZLIB=y
+# BR2_PACKAGE_IFUPDOWN_SCRIPTS is not set
+BR2_PACKAGE_IPTABLES=y
+BR2_PACKAGE_MOSQUITTO=y
+# BR2_PACKAGE_MOSQUITTO_BROKER is not set
+BR2_PACKAGE_WIREGUARD_LINUX_COMPAT=y
+BR2_PACKAGE_WIREGUARD_TOOLS=y
+BR2_TARGET_ROOTFS_CPIO=y
+BR2_TARGET_ROOTFS_SQUASHFS=y
+BR2_TARGET_ROOTFS_SQUASHFS4_XZ=y
+
+# Packages
+BR2_PACKAGE_DROPBEAR_OPENIPC=y
+BR2_PACKAGE_EXFAT_OPENIPC=y
+BR2_PACKAGE_HISILICON_OPENSDK=y
+BR2_PACKAGE_HISILICON_OSDRV_HI3516CV6XX=y
+BR2_PACKAGE_IPCTOOL=y
+BR2_PACKAGE_LAME_OPENIPC=y
+BR2_PACKAGE_LIBCURL_OPENIPC_CURL=y
+# busybox wget in this image has neither CONFIG_FEATURE_WGET_HTTPS nor
+# WGET_OPENSSL, so https upgrades can only go through curl -- and curl needs a
+# TLS backend, which the package leaves to this choice. Same pair
+# ssc338q_wfbng/ssc377qe_wfbng select.
+BR2_PACKAGE_LIBCURL_OPENIPC_MBEDTLS=y
+BR2_PACKAGE_MBEDTLS_OPENIPC=y
+# BR2_PACKAGE_LIBCURL_OPENIPC_PROXY_SUPPORT is not set
+# BR2_PACKAGE_LIBCURL_OPENIPC_COOKIES_SUPPORT is not set
+# BR2_PACKAGE_LIBCURL_OPENIPC_EXTRA_PROTOCOLS_FEATURES is not set
+BR2_PACKAGE_LIBEVENT_OPENIPC=y
+BR2_PACKAGE_LIBOGG_OPENIPC=y
+BR2_PACKAGE_MOTORS=y
+BR2_PACKAGE_OPUS_OPENIPC=y
+BR2_PACKAGE_OPUS_OPENIPC_FIXED_POINT=y
+BR2_PACKAGE_OPUS_OPENIPC_HISI_SHIM=y
+BR2_PACKAGE_QUIRC_OPENIPC=y
+BR2_PACKAGE_UACME_OPENIPC=y
+BR2_PACKAGE_VTUND_OPENIPC=y
+# FPV link: wifibroadcast-ng plus the two USB adapters air units carry
+# (RTL8812AU / RTL88X2EU). The package ships the configs it needs -- /etc/wfb.yaml,
+# /etc/drone.key and S98wifibroadcast -- and its /usr/bin/wifibroadcast detects
+# the plugged adapter from lsusb, seeds .wireless.wlan_adapter, puts the port in
+# monitor mode, sets channel/txpower and starts wfb_tx on the abstract socket
+# rtp_local. What it cannot do is reconfigure the encoder: its video_settings
+# speaks majestic's `cli`, which this image does not have, so on waybeam the
+# stream settings stay the waybeam config's own (customizer.sh only retargets
+# outgoing.server at that socket). libpcap/libsodium come in as the package's
+# declared dependencies.
+BR2_PACKAGE_RTL8812AU_OPENIPC=y
+BR2_PACKAGE_RTL88X2EU_OPENIPC=y
+BR2_PACKAGE_WIFIBROADCAST_NG=y
+# No BR2_PACKAGE_WIRELESS_REGDB: the fragment above keeps CRDA support off,
+# because its FW_LOADER/system-data-verification pull alone overflows the
+# 2048 KB kernel window this layout boots from. With CRDA off nothing reads
+# regulatory.db; the adapters' own country-00 tables apply.
+#
+# Deliberately NOT selected, from the neighbouring FPV configs:
+#   ADAPTIVE_LINK   -- alink_drone drives the encoder through majestic's `cli`
+#                      (cli -g .video0.fps, bitrateCommandTemplate -> cli -s
+#                      .video0.bitrate, killall -HUP majestic). This image has
+#                      no `cli`: the CV610 build ships no json_cli and waybeam
+#                      is not majestic. It would start from /etc/rc.local and do
+#                      nothing; a waybeam-side equivalent has to talk to
+#                      /api/v1/config, which is a separate piece of work.
+#   WIFIBROADCAST_EXT -- the symbol does not exist anywhere in firmware (checked
+#                      across the tree); the lines in the ssc338q/ssc378qe
+#                      defconfigs are dead.
+#   WIRELESS_TOOLS  -- iwconfig-era; `iw` comes in through wifibroadcast-ng's
+#                      own select, and that is what the wfb scripts call.
+#   LINUX_PATCHER_ATHEROS / LINUX_FIRMWARE_OPENIPC_ATHEROS_9271 -- ath9k_htc,
+#                      a sigmastar-kernel arrangement; no such hardware here.
+# MAVFWD is selected by wifibroadcast-ng itself. MSPOSD is not, on this SoC:
+# this device carries its own copy of wifibroadcast-ng/Config.in that gates the
+# msposd select on the families msposd.mk actually implements (sigmastar, goke,
+# V4-hisi, hi3536). Ungated, msposd builds its star6e flavour on cv6xx and the
+# image fails to link against sigmastar MI libraries. customizer.sh points
+# .telemetry.router at mavfwd for the same reason.
+BR2_PACKAGE_WAYBEAM=y
+BR2_PACKAGE_YAML_CLI=y
+BR2_PACKAGE_ZEROTIER_ONE=y
