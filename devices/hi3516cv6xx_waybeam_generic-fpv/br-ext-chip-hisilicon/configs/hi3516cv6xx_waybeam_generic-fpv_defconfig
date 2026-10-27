@@ -4,15 +4,16 @@ BR2_OPENIPC_SOC_MODEL="hi3516cv6xx"
 BR2_OPENIPC_SOC_FAMILY="hi3516cv6xx"
 # One cv6xx image serves dies that report distinct ids (hi3516cv610,
 # hi3516cv608) via fw_printenv/ipcinfo. Upgrade identity comes from
-# BUILD_PLATFORM=hi3516cv6xx_waybeam_generic -- the name CI publishes the
-# image under (hi3516cv6xx_waybeam_generic-nor.tgz, see customizer.sh) --
+# BUILD_PLATFORM=hi3516cv6xx_waybeam_generic-fpv -- the name CI publishes the
+# image under (hi3516cv6xx_waybeam_generic-fpv-nor.tgz, see customizer.sh) --
 # these aliases are a defensive route for any image/camera that still
 # surfaces the per-die id.
 BR2_OPENIPC_SOC_ALIASES="hi3516cv610 hi3516cv608"
 # "waybeam" is deliberately its own variant, as on ssc338q_waybeam_generic:
 # it selects the waybeam package in place of majestic, and keeps this
 # image's upgrade identity out of the published majestic
-# hi3516cv6xx_ultimate channel.
+# hi3516cv6xx_ultimate channel. The FPV in the device name is the model
+# suffix: this is the air-unit build (wifibroadcast, no VPN/MQTT/firewall).
 BR2_OPENIPC_VARIANT="waybeam"
 BR2_OPENIPC_FLASH_SIZE="16"
 
@@ -57,12 +58,24 @@ BR2_PACKAGE_UBOOT_TOOLS=y
 # so curl has been dead in those images while wget (busybox) carried on.
 # Same line ssc338q_waybeam_generic already has.
 BR2_PACKAGE_ZLIB=y
+# Air unit, so the remote-access and broker packages the ultimate cv6xx
+# envelope carries are not built at all: zerotier-one, wireguard
+# (compat + tools), vtund, mosquitto, uacme, quirc and motors. Each one was
+# inert here anyway -- they start only behind an env var or config file that
+# this image never sets (/etc/zerotier.conf with enabled=true, fw_printenv
+# wg_privkey, fw_printenv vtun, fw_printenv wlandev) -- so dropping them costs
+# no behaviour and ~700 KB of rootfs. Still kept, because something links
+# against them: libopus.so.0 is in the waybeam binary's NEEDED, the vendor
+# libmp3_enc.so needs libmp3_lame.so, and mbedtls is curl's TLS backend.
+#
+# iptables goes too, and that is the one with a real consequence: nothing in
+# this image writes rules, so /etc/iptables.conf ships empty and S35iptables
+# restored an empty set at boot (measured on the board: all three policies
+# ACCEPT, no rules, no nat table). Removing the package removes the script and
+# the empty file with it, so no boot-time FAIL. Add it back together with a
+# rule set if the air unit ever needs one; it cannot affect the wfb link either
+# way, which injects raw 802.11 frames below netfilter.
 # BR2_PACKAGE_IFUPDOWN_SCRIPTS is not set
-BR2_PACKAGE_IPTABLES=y
-BR2_PACKAGE_MOSQUITTO=y
-# BR2_PACKAGE_MOSQUITTO_BROKER is not set
-BR2_PACKAGE_WIREGUARD_LINUX_COMPAT=y
-BR2_PACKAGE_WIREGUARD_TOOLS=y
 BR2_TARGET_ROOTFS_CPIO=y
 BR2_TARGET_ROOTFS_SQUASHFS=y
 BR2_TARGET_ROOTFS_SQUASHFS4_XZ=y
@@ -86,13 +99,10 @@ BR2_PACKAGE_MBEDTLS_OPENIPC=y
 # BR2_PACKAGE_LIBCURL_OPENIPC_EXTRA_PROTOCOLS_FEATURES is not set
 BR2_PACKAGE_LIBEVENT_OPENIPC=y
 BR2_PACKAGE_LIBOGG_OPENIPC=y
-BR2_PACKAGE_MOTORS=y
 BR2_PACKAGE_OPUS_OPENIPC=y
 BR2_PACKAGE_OPUS_OPENIPC_FIXED_POINT=y
 BR2_PACKAGE_OPUS_OPENIPC_HISI_SHIM=y
-BR2_PACKAGE_QUIRC_OPENIPC=y
-BR2_PACKAGE_UACME_OPENIPC=y
-BR2_PACKAGE_VTUND_OPENIPC=y
+
 # FPV link: wifibroadcast-ng plus the two USB adapters air units carry
 # (RTL8812AU / RTL88X2EU). The package ships the configs it needs -- /etc/wfb.yaml,
 # /etc/drone.key and S98wifibroadcast -- and its /usr/bin/wifibroadcast detects
@@ -134,4 +144,3 @@ BR2_PACKAGE_WIFIBROADCAST_NG=y
 # .telemetry.router at mavfwd for the same reason.
 BR2_PACKAGE_WAYBEAM=y
 BR2_PACKAGE_YAML_CLI=y
-BR2_PACKAGE_ZEROTIER_ONE=y

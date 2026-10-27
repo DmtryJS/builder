@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# First-boot delta for hi3516cv6xx_waybeam_generic. Runs once from
+# First-boot delta for hi3516cv6xx_waybeam_generic-fpv. Runs once from
 # S30customizer, before S94unixqlen / S95waybeam start anything.
 #
 # Two things differ from the waybeam package's own default, and neither can be
@@ -25,7 +25,7 @@
 # tunes those over the HTTP API (/api/v1/config), which is also the only thing
 # that should rewrite this file once the daemon is running.
 
-fw_setenv upgrade 'https://github.com/OpenIPC/builder/releases/download/latest/hi3516cv6xx_waybeam_generic-nor.tgz'
+fw_setenv upgrade 'https://github.com/OpenIPC/builder/releases/download/latest/hi3516cv6xx_waybeam_generic-fpv-nor.tgz'
 
 if [ -f /etc/waybeam.json ]; then
 	sed -i 's#"server": *"[^"]*"#"server": "unix://rtp_local"#' /etc/waybeam.json
