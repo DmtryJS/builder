@@ -1,16 +1,18 @@
 # hi3516cv6xx_waybeam_generic: rootfs trim for the 16 MB NOR split layout.
 #
 # waybeam's CV610 backend drives exactly two sensors, and it drives them as
-# userspace plugins it builds itself: /usr/lib/sensors/libsns_imx662.so and
-# libsns_imx335.so, installed by the waybeam package. Everything else that
+# userspace plugins: /usr/lib/sensors/libsns_imx662.so comes from the waybeam
+# package (built out of the waybeam tree) and libsns_imx335.so from
+# hisilicon-opensdk (built out of OpenIPC/openhisilicon). Everything else that
 # hisilicon-opensdk and hisilicon-osdrv-hi3516cv6xx put in /usr/lib/sensors
 # is unreachable here -- the backend has no mode table for any other part and
 # falls back to IMX662 with a warning -- so those blobs only cost flash. A
 # board with a different sensor needs the majestic hi3516cv6xx_ultimate
 # image, not this one.
 #
-# Do not add libsns_imx662.so or libsns_imx335.so: the waybeam package
-# installs both, and this list runs at target-finalize, i.e. after it.
+# Do not add libsns_imx662.so or libsns_imx335.so: imx662 is installed by the
+# waybeam package and imx335 by hisilicon-opensdk, and this list runs at
+# target-finalize, i.e. after both.
 /usr/lib/sensors/libsns_gc4023.so
 /usr/lib/sensors/libsns_os04d10.so
 /usr/lib/sensors/libsns_sc431hai.so
@@ -26,6 +28,11 @@
 # waybeam CV610 backend carries its own per-mode tables and reads no .ini or
 # .bin from /etc/sensors at all (see general/package/waybeam/waybeam.mk), so
 # the whole set is dead weight on this image.
+#
+# Measured, in case a future build wants majestic next to waybeam: without
+# imx335_i2c_5M.ini majestic refuses to start ("No matches for 'imx335_i2c'
+# in /etc/sensors directory") even though it finds the .so on its own. This
+# image ships no majestic, so the profile stays out.
 /etc/sensors/imx335_i2c_5M.ini
 /etc/sensors/modes/imx335_1520p.ini
 /etc/sensors/modes/imx335_flex.ini
